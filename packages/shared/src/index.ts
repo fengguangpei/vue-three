@@ -70,21 +70,21 @@ export const isPromise = <T = any>(val: unknown): val is Promise<T> => {
 export const objectToString = Object.prototype.toString
 export const toTypeString = (value: unknown): string =>
   objectToString.call(value)
-
+// 判断给定参数的类型
 export const toRawType = (value: unknown): string => {
   // extract "RawType" from strings like "[object RawType]"
   return toTypeString(value).slice(8, -1)
 }
-
+// 是不是单纯的对象
 export const isPlainObject = (val: unknown): val is object =>
   toTypeString(val) === '[object Object]'
-
+// 是不是合法的下标key
 export const isIntegerKey = (key: unknown) =>
   isString(key) &&
   key !== 'NaN' &&
   key[0] !== '-' &&
   '' + parseInt(key, 10) === key
-
+// 是不是保留prop
 export const isReservedProp = /*#__PURE__*/ makeMap(
   // the leading comma is intentional so empty string "" is also included
   ',key,ref,ref_for,ref_key,' +
@@ -92,11 +92,11 @@ export const isReservedProp = /*#__PURE__*/ makeMap(
     'onVnodeBeforeUpdate,onVnodeUpdated,' +
     'onVnodeBeforeUnmount,onVnodeUnmounted'
 )
-
+// 是不是保留指令
 export const isBuiltInDirective = /*#__PURE__*/ makeMap(
   'bind,cloak,else-if,else,for,html,if,model,on,once,pre,show,slot,text,memo'
 )
-
+// 处理字符串的函数的缓存版本
 const cacheStringFunction = <T extends (str: string) => string>(fn: T): T => {
   const cache: Record<string, string> = Object.create(null)
   return ((str: string) => {
@@ -138,13 +138,13 @@ export const toHandlerKey = cacheStringFunction((str: string) =>
 // compare whether a value has changed, accounting for NaN.
 export const hasChanged = (value: any, oldValue: any): boolean =>
   !Object.is(value, oldValue)
-
+// 遍历函数数组并执行
 export const invokeArrayFns = (fns: Function[], arg?: any) => {
   for (let i = 0; i < fns.length; i++) {
     fns[i](arg)
   }
 }
-
+// Object.defineProperty
 export const def = (obj: object, key: string | symbol, value: any) => {
   Object.defineProperty(obj, key, {
     configurable: true,
@@ -154,6 +154,7 @@ export const def = (obj: object, key: string | symbol, value: any) => {
 }
 
 /**
+ * 字符串宽松转数字
  * "123-foo" will be parsed to 123
  * This is used for the .number modifier in v-model
  */
@@ -163,6 +164,7 @@ export const looseToNumber = (val: any): any => {
 }
 
 /**
+ * 字符串严格转数字
  * Only conerces number-like strings
  * "123-foo" will be returned as-is
  */
@@ -172,6 +174,7 @@ export const toNumber = (val: any): any => {
 }
 
 let _globalThis: any
+// 获取不同环境的全局顶层对象
 export const getGlobalThis = (): any => {
   return (
     _globalThis ||

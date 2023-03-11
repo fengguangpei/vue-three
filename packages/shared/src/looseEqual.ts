@@ -1,5 +1,5 @@
 import { isArray, isDate, isObject, isSymbol } from './'
-
+// 数组宽松相等
 function looseCompareArrays(a: any[], b: any[]) {
   if (a.length !== b.length) return false
   let equal = true
@@ -8,7 +8,7 @@ function looseCompareArrays(a: any[], b: any[]) {
   }
   return equal
 }
-
+// 递归判断两个值是否宽松相等
 export function looseEqual(a: any, b: any): boolean {
   if (a === b) return true
   let aValidType = isDate(a)

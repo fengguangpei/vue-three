@@ -1,5 +1,5 @@
 import { makeMap } from './makeMap'
-
+// template模版可以访问的全局变量
 const GLOBALS_WHITE_LISTED =
   'Infinity,undefined,NaN,isFinite,isNaN,parseFloat,parseInt,decodeURI,' +
   'decodeURIComponent,encodeURI,encodeURIComponent,Math,Number,Date,Array,' +

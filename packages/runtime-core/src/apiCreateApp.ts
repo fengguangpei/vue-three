@@ -157,7 +157,7 @@ export type Plugin<Options = any[]> =
   | {
       install: PluginInstallFunction<Options>
     }
-
+// 组件上下文工厂函数
 export function createAppContext(): AppContext {
   return {
     app: null as any,
@@ -227,7 +227,7 @@ export function createAppAPI<HostElement>(
           )
         }
       },
-
+      // use API
       use(plugin: Plugin, ...options: any[]) {
         if (installedPlugins.has(plugin)) {
           __DEV__ && warn(`Plugin has already been applied to target app.`)
@@ -245,9 +245,11 @@ export function createAppAPI<HostElement>(
         }
         return app
       },
-
+      // mixin API
       mixin(mixin: ComponentOptions) {
+        // 判断是否支持选项式API
         if (__FEATURE_OPTIONS_API__) {
+          // 判断是否重复
           if (!context.mixins.includes(mixin)) {
             context.mixins.push(mixin)
           } else if (__DEV__) {
@@ -261,36 +263,41 @@ export function createAppAPI<HostElement>(
         }
         return app
       },
-
+      // component API
       component(name: string, component?: Component): any {
+        // 开发环境验证组件名称
         if (__DEV__) {
           validateComponentName(name, context.config)
         }
+        // 只提供名称，视为查询
         if (!component) {
           return context.components[name]
         }
+        // 检查重复注册
         if (__DEV__ && context.components[name]) {
           warn(`Component "${name}" has already been registered in target app.`)
         }
         context.components[name] = component
         return app
       },
-
+      // directive API
       directive(name: string, directive?: Directive) {
+        // 开发环境验证指令名称
         if (__DEV__) {
           validateDirectiveName(name)
         }
-
+        // 查询指令
         if (!directive) {
           return context.directives[name] as any
         }
+        // 判断重复注册
         if (__DEV__ && context.directives[name]) {
           warn(`Directive "${name}" has already been registered in target app.`)
         }
         context.directives[name] = directive
         return app
       },
-
+      // 挂载
       mount(
         rootContainer: HostElement,
         isHydrate?: boolean,
@@ -336,7 +343,9 @@ export function createAppAPI<HostElement>(
           }
 
           return getExposeProxy(vnode.component!) || vnode.component!.proxy
-        } else if (__DEV__) {
+        }
+        // 重复挂载
+        else if (__DEV__) {
           warn(
             `App has already been mounted.\n` +
               `If you want to remount the same app, move your app creation logic ` +
@@ -345,7 +354,7 @@ export function createAppAPI<HostElement>(
           )
         }
       },
-
+      // 卸载
       unmount() {
         if (isMounted) {
           render(null, app._container)
@@ -358,8 +367,9 @@ export function createAppAPI<HostElement>(
           warn(`Cannot unmount an app that is not mounted.`)
         }
       },
-
+      // provide API
       provide(key, value) {
+        // 检查重复
         if (__DEV__ && (key as string | symbol) in context.provides) {
           warn(
             `App already provides property with key "${String(key)}". ` +

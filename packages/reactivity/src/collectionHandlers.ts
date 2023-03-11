@@ -14,7 +14,7 @@ const toShallow = <T extends unknown>(value: T): T => value
 
 const getProto = <T extends CollectionTypes>(v: T): any =>
   Reflect.getPrototypeOf(v)
-
+// 拦截get方法
 function get(
   target: MapTypes,
   key: unknown,
@@ -26,6 +26,7 @@ function get(
   target = (target as any)[ReactiveFlags.RAW]
   const rawTarget = toRaw(target)
   const rawKey = toRaw(key)
+  // readonly情况下无需追踪
   if (!isReadonly) {
     if (key !== rawKey) {
       track(rawTarget, TrackOpTypes.GET, key)
@@ -33,6 +34,7 @@ function get(
     track(rawTarget, TrackOpTypes.GET, rawKey)
   }
   const { has } = getProto(rawTarget)
+  // 实现深度响应
   const wrap = isShallow ? toShallow : isReadonly ? toReadonly : toReactive
   if (has.call(rawTarget, key)) {
     return wrap(target.get(key))
@@ -44,11 +46,12 @@ function get(
     target.get(key)
   }
 }
-
+// 拦截has方法
 function has(this: CollectionTypes, key: unknown, isReadonly = false): boolean {
   const target = (this as any)[ReactiveFlags.RAW]
   const rawTarget = toRaw(target)
   const rawKey = toRaw(key)
+  // readonly不需要追踪
   if (!isReadonly) {
     if (key !== rawKey) {
       track(rawTarget, TrackOpTypes.HAS, key)
@@ -59,26 +62,34 @@ function has(this: CollectionTypes, key: unknown, isReadonly = false): boolean {
     ? target.has(key)
     : target.has(key) || target.has(rawKey)
 }
-
+// 拦截size
 function size(target: IterableCollections, isReadonly = false) {
   target = (target as any)[ReactiveFlags.RAW]
+  // readonly不需要追踪
   !isReadonly && track(toRaw(target), TrackOpTypes.ITERATE, ITERATE_KEY)
   return Reflect.get(target, 'size', target)
 }
-
+// 拦截add方法
 function add(this: SetTypes, value: unknown) {
+  // 避免数据污染
   value = toRaw(value)
+  // 原始对象
   const target = toRaw(this)
+  // 原型
   const proto = getProto(target)
   const hadKey = proto.has.call(target, value)
+  // 判断是否已存在相同的值
   if (!hadKey) {
     target.add(value)
+    // 触发更新
     trigger(target, TriggerOpTypes.ADD, value, value)
   }
   return this
 }
-
+// 拦截set方法
 function set(this: MapTypes, key: unknown, value: unknown) {
+  // 如果value是一个响应式对象，直接设置到原始对象上，则意味着可以通过
+  // 原始对象访问响应式数据，这样子监听一个原始对象也会有副作用，这是不合理的
   value = toRaw(value)
   const target = toRaw(this)
   const { has, get } = getProto(target)
@@ -93,6 +104,7 @@ function set(this: MapTypes, key: unknown, value: unknown) {
 
   const oldValue = get.call(target, key)
   target.set(key, value)
+  // 区分是新增的，还是修改
   if (!hadKey) {
     trigger(target, TriggerOpTypes.ADD, key, value)
   } else if (hasChanged(value, oldValue)) {
@@ -100,7 +112,7 @@ function set(this: MapTypes, key: unknown, value: unknown) {
   }
   return this
 }
-
+// 拦截delete方法
 function deleteEntry(this: CollectionTypes, key: unknown) {
   const target = toRaw(this)
   const { has, get } = getProto(target)
@@ -120,7 +132,7 @@ function deleteEntry(this: CollectionTypes, key: unknown) {
   }
   return result
 }
-
+// 拦截clear方法
 function clear(this: IterableCollections) {
   const target = toRaw(this)
   const hadItems = target.size !== 0
@@ -136,7 +148,7 @@ function clear(this: IterableCollections) {
   }
   return result
 }
-
+// 拦截forEach方法
 function createForEach(isReadonly: boolean, isShallow: boolean) {
   return function forEach(
     this: IterableCollections,
@@ -152,6 +164,7 @@ function createForEach(isReadonly: boolean, isShallow: boolean) {
       // important: make sure the callback is
       // 1. invoked with the reactive map as `this` and 3rd arg
       // 2. the value received should be a corresponding reactive/readonly.
+      // 把原始值包装成响应式对象, 深度响应
       return callback.call(thisArg, wrap(value), wrap(key), observed)
     })
   }
@@ -169,7 +182,7 @@ interface IterationResult {
   value: any
   done: boolean
 }
-
+// 自定义迭代器，处理keys, values, entries, for of
 function createIterableMethod(
   method: string | symbol,
   isReadonly: boolean,
@@ -226,7 +239,8 @@ function createReadonlyMethod(type: TriggerOpTypes): Function {
     return type === TriggerOpTypes.DELETE ? false : this
   }
 }
-
+// 工厂函数，创建map、set、weakSet、weakMap的proxy handlers
+// get | size | has | add | set | delete | clear | forEach | keys | values | entries | for of
 function createInstrumentations() {
   const mutableInstrumentations: Record<string, Function> = {
     get(this: MapTypes, key: unknown) {
@@ -291,7 +305,7 @@ function createInstrumentations() {
     clear: createReadonlyMethod(TriggerOpTypes.CLEAR),
     forEach: createForEach(true, true)
   }
-
+  // Symbol.iterator处理for of遍历
   const iteratorMethods = ['keys', 'values', 'entries', Symbol.iterator]
   iteratorMethods.forEach(method => {
     mutableInstrumentations[method as string] = createIterableMethod(
@@ -317,9 +331,13 @@ function createInstrumentations() {
   })
 
   return [
+    // reactive使用
     mutableInstrumentations,
+    // readonly使用
     readonlyInstrumentations,
+    // shallow使用
     shallowInstrumentations,
+    // shallowReadonly使用
     shallowReadonlyInstrumentations
   ]
 }
@@ -330,7 +348,7 @@ const [
   shallowInstrumentations,
   shallowReadonlyInstrumentations
 ] = /* #__PURE__*/ createInstrumentations()
-
+// 返回一个getter函数，调用set、map的方法时比如set.add()等，返回代理的方法
 function createInstrumentationGetter(isReadonly: boolean, shallow: boolean) {
   const instrumentations = shallow
     ? isReadonly
@@ -352,7 +370,8 @@ function createInstrumentationGetter(isReadonly: boolean, shallow: boolean) {
     } else if (key === ReactiveFlags.RAW) {
       return target
     }
-
+    // 拦截instrumentation中定义的方法的获取，如果不在instrumentation中则
+    // 直接从target中获取
     return Reflect.get(
       hasOwn(instrumentations, key) && key in target
         ? instrumentations
@@ -362,19 +381,19 @@ function createInstrumentationGetter(isReadonly: boolean, shallow: boolean) {
     )
   }
 }
-
+// reactive处理set、map的handler
 export const mutableCollectionHandlers: ProxyHandler<CollectionTypes> = {
   get: /*#__PURE__*/ createInstrumentationGetter(false, false)
 }
-
+// shallowReactive处理set、map的handler
 export const shallowCollectionHandlers: ProxyHandler<CollectionTypes> = {
   get: /*#__PURE__*/ createInstrumentationGetter(false, true)
 }
-
+// readonly处理set、map的handler
 export const readonlyCollectionHandlers: ProxyHandler<CollectionTypes> = {
   get: /*#__PURE__*/ createInstrumentationGetter(true, false)
 }
-
+// shallowReadonly处理set、map的handler
 export const shallowReadonlyCollectionHandlers: ProxyHandler<CollectionTypes> =
   {
     get: /*#__PURE__*/ createInstrumentationGetter(true, true)

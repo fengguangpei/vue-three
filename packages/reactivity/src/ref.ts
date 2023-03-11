@@ -20,7 +20,7 @@ import { createDep, Dep } from './dep'
 
 declare const RefSymbol: unique symbol
 export declare const RawSymbol: unique symbol
-
+// Ref类型
 export interface Ref<T = any> {
   value: T
   /**
@@ -35,7 +35,7 @@ type RefBase<T> = {
   dep?: Dep
   value: T
 }
-
+// ref追踪依赖
 export function trackRefValue(ref: RefBase<any>) {
   if (shouldTrack && activeEffect) {
     ref = toRaw(ref)
@@ -50,7 +50,7 @@ export function trackRefValue(ref: RefBase<any>) {
     }
   }
 }
-
+// ref触发更新
 export function triggerRefValue(ref: RefBase<any>, newVal?: any) {
   ref = toRaw(ref)
   if (ref.dep) {
@@ -66,12 +66,12 @@ export function triggerRefValue(ref: RefBase<any>, newVal?: any) {
     }
   }
 }
-
+// 判断是否是ref
 export function isRef<T>(r: Ref<T> | unknown): r is Ref<T>
 export function isRef(r: any): r is Ref {
   return !!(r && r.__v_isRef === true)
 }
-
+// ref API
 export function ref<T extends object>(
   value: T
 ): [T] extends [Ref] ? T : Ref<UnwrapRef<T>>
@@ -81,10 +81,10 @@ export function ref(value?: unknown) {
   return createRef(value, false)
 }
 
+/**      shallowRef开始    */
 declare const ShallowRefMarker: unique symbol
-
+// shallowRef API
 export type ShallowRef<T = any> = Ref<T> & { [ShallowRefMarker]?: true }
-
 export function shallowRef<T extends object>(
   value: T
 ): T extends Ref ? T : ShallowRef<T>
@@ -93,31 +93,37 @@ export function shallowRef<T = any>(): ShallowRef<T | undefined>
 export function shallowRef(value?: unknown) {
   return createRef(value, true)
 }
+/**      shallowRef结束      */
 
+// 创建ref，ref、shallowRef都会调用这个函数
 function createRef(rawValue: unknown, shallow: boolean) {
+  // target是ref，直接返回
   if (isRef(rawValue)) {
     return rawValue
   }
   return new RefImpl(rawValue, shallow)
 }
 
+// ref构造函数
 class RefImpl<T> {
   private _value: T
   private _rawValue: T
-
+  // ref的依赖
   public dep?: Dep = undefined
+  // ref标记
   public readonly __v_isRef = true
 
   constructor(value: T, public readonly __v_isShallow: boolean) {
+    // shallowRef不需要深度处理，否则递归处理
     this._rawValue = __v_isShallow ? value : toRaw(value)
     this._value = __v_isShallow ? value : toReactive(value)
   }
-
+  // 通过.value访问时，追踪依赖
   get value() {
     trackRefValue(this)
     return this._value
   }
-
+  // 通过set设置时，触发更新
   set value(newVal) {
     const useDirectValue =
       this.__v_isShallow || isShallow(newVal) || isReadonly(newVal)
@@ -130,10 +136,11 @@ class RefImpl<T> {
   }
 }
 
+// triggerRef API 强制触发一个浅层的shallowRef
 export function triggerRef(ref: Ref) {
   triggerRefValue(ref, __DEV__ ? ref.value : void 0)
 }
-
+// 解构ref
 export function unref<T>(ref: T | Ref<T>): T {
   return isRef(ref) ? (ref.value as any) : ref
 }
@@ -167,6 +174,7 @@ export type CustomRefFactory<T> = (
   set: (value: T) => void
 }
 
+// customRef API
 class CustomRefImpl<T> {
   public dep?: Dep = undefined
 
@@ -192,7 +200,7 @@ class CustomRefImpl<T> {
     this._set(newVal)
   }
 }
-
+// customRef API
 export function customRef<T>(factory: CustomRefFactory<T>): Ref<T> {
   return new CustomRefImpl(factory) as any
 }
@@ -200,6 +208,8 @@ export function customRef<T>(factory: CustomRefFactory<T>): Ref<T> {
 export type ToRefs<T = any> = {
   [K in keyof T]: ToRef<T[K]>
 }
+
+// toRefs API
 export function toRefs<T extends object>(object: T): ToRefs<T> {
   if (__DEV__ && !isProxy(object)) {
     console.warn(`toRefs() expects a reactive object but received a plain one.`)
@@ -232,17 +242,16 @@ class ObjectRefImpl<T extends object, K extends keyof T> {
 
 export type ToRef<T> = IfAny<T, Ref<T>, [T] extends [Ref] ? T : Ref<T>>
 
+// toRef API
 export function toRef<T extends object, K extends keyof T>(
   object: T,
   key: K
 ): ToRef<T[K]>
-
 export function toRef<T extends object, K extends keyof T>(
   object: T,
   key: K,
   defaultValue: T[K]
 ): ToRef<Exclude<T[K], undefined>>
-
 export function toRef<T extends object, K extends keyof T>(
   object: T,
   key: K,

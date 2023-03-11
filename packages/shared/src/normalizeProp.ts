@@ -1,10 +1,11 @@
 import { isArray, isString, isObject, hyphenate } from './'
 
 export type NormalizedStyle = Record<string, string | number>
-
+// 格式化style
 export function normalizeStyle(
   value: unknown
 ): NormalizedStyle | string | undefined {
+  // 数组形式
   if (isArray(value)) {
     const res: NormalizedStyle = {}
     for (let i = 0; i < value.length; i++) {
@@ -29,7 +30,7 @@ export function normalizeStyle(
 const listDelimiterRE = /;(?![^(]*\))/g
 const propertyDelimiterRE = /:([^]+)/
 const styleCommentRE = /\/\*.*?\*\//gs
-
+// 字符串的style转化为标准的对象形式
 export function parseStringStyle(cssText: string): NormalizedStyle {
   const ret: NormalizedStyle = {}
   cssText

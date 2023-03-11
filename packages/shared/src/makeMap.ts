@@ -1,4 +1,5 @@
 /**
+ * 字符串转化为map，并返回一个函数判断给定key是否在map中
  * Make a map and return a function for checking if a key
  * is in that map.
  * IMPORTANT: all calls of this function must be prefixed with
